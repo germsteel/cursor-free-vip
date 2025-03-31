@@ -9,12 +9,14 @@ import locale
 import platform
 import requests
 import subprocess
-from config import get_config  
+from config import get_config
+import shutil
+import re
 
 # Only import windll on Windows systems
 if platform.system() == 'Windows':
     import ctypes
-    # 只在 Windows 上导入 windll
+    # Only import windll on Windows systems
     from ctypes import windll
 
 # Initialize colorama
@@ -32,7 +34,13 @@ EMOJI = {
     "ARROW": "➜",
     "LANG": "🌐",
     "UPDATE": "🔄",
-    "ADMIN": "🔐"
+    "ADMIN": "🔐",
+    "AIRDROP": "💰",
+    "ROCKET": "🚀",
+    "STAR": "⭐",
+    "SUN": "🌟",
+    "CONTRIBUTE": "🤝",
+    "SETTINGS": "⚙️"
 }
 
 # Function to check if running as frozen executable
@@ -107,6 +115,10 @@ class Translator:
                 0x0409: 'en',      # English
                 0x0404: 'zh_tw',   # Traditional Chinese
                 0x0804: 'zh_cn',   # Simplified Chinese
+                0x0422: 'vi',      # Vietnamese
+                0x0419: 'ru',      # Russian
+                0x0415: 'tr',      # Turkish
+                0x0402: 'bg',      # Bulgarian
             }
             
             return language_map.get(layout_id, 'en')
@@ -130,14 +142,45 @@ class Translator:
                 return 'zh_cn'
             elif system_locale.startswith('en'):
                 return 'en'
-            
+            elif system_locale.startswith('vi'):
+                return 'vi'
+            elif system_locale.startswith('nl'):
+                return 'nl'
+            elif system_locale.startswith('de'):
+                return 'de'
+            elif system_locale.startswith('fr'):
+                return 'fr'
+            elif system_locale.startswith('pt'):
+                return 'pt'
+            elif system_locale.startswith('ru'):
+                return 'ru'
+            elif system_locale.startswith('tr'):
+                return 'tr'
+            elif system_locale.startswith('bg'):
+                return 'bg'
             # Try to get language from LANG environment variable as fallback
             env_lang = os.getenv('LANG', '').lower()
             if 'tw' in env_lang or 'hk' in env_lang:
                 return 'zh_tw'
             elif 'cn' in env_lang:
                 return 'zh_cn'
-            
+            elif 'vi' in env_lang:
+                return 'vi'
+            elif 'nl' in env_lang:
+                return 'nl'
+            elif 'de' in env_lang:
+                return 'de'
+            elif 'fr' in env_lang:
+                return 'fr'
+            elif 'pt' in env_lang:
+                return 'pt'
+            elif 'ru' in env_lang:
+                return 'ru'
+            elif 'tr' in env_lang:
+                return 'tr'
+            elif 'bg' in env_lang:
+                return 'bg'
+
             return 'en'
         except:
             return 'en'
@@ -206,17 +249,112 @@ class Translator:
 translator = Translator()
 
 def print_menu():
-    """打印菜单选项"""
+    """Print menu options"""
+    try:
+        config = get_config()
+        if config.getboolean('Utils', 'enabled_account_info'):
+            import cursor_acc_info
+            cursor_acc_info.display_account_info(translator)
+    except Exception as e:
+        print(f"{Fore.YELLOW}{EMOJI['INFO']} {translator.get('menu.account_info_error', error=str(e))}{Style.RESET_ALL}")
+    
     print(f"\n{Fore.CYAN}{EMOJI['MENU']} {translator.get('menu.title')}:{Style.RESET_ALL}")
-    print(f"{Fore.YELLOW}{'─' * 40}{Style.RESET_ALL}")
-    print(f"{Fore.GREEN}0{Style.RESET_ALL}. {EMOJI['ERROR']} {translator.get('menu.exit')}")
-    print(f"{Fore.GREEN}1{Style.RESET_ALL}. {EMOJI['RESET']} {translator.get('menu.reset')}")
-    print(f"{Fore.GREEN}2{Style.RESET_ALL}. {EMOJI['SUCCESS']} {translator.get('menu.register')}")
-    print(f"{Fore.GREEN}3{Style.RESET_ALL}. {EMOJI['SUCCESS']} {translator.get('menu.register_manual')}")
-    print(f"{Fore.GREEN}4{Style.RESET_ALL}. {EMOJI['ERROR']} {translator.get('menu.quit')}")
-    print(f"{Fore.GREEN}5{Style.RESET_ALL}. {EMOJI['LANG']} {translator.get('menu.select_language')}")
-    print(f"{Fore.GREEN}6{Style.RESET_ALL}. {EMOJI['UPDATE']} {translator.get('menu.disable_auto_update')}")
-    print(f"{Fore.YELLOW}{'─' * 40}{Style.RESET_ALL}")
+    if translator.current_language == 'zh_cn' or translator.current_language == 'zh_tw':
+        print(f"{Fore.YELLOW}{'─' * 70}{Style.RESET_ALL}")
+    else:
+        print(f"{Fore.YELLOW}{'─' * 110}{Style.RESET_ALL}")
+    
+    # Get terminal width
+    try:
+        terminal_width = shutil.get_terminal_size().columns
+    except:
+        terminal_width = 80  # Default width
+    
+    # Define all menu items
+    menu_items = {
+        0: f"{Fore.GREEN}0{Style.RESET_ALL}. {EMOJI['ERROR']} {translator.get('menu.exit')}",
+        1: f"{Fore.GREEN}1{Style.RESET_ALL}. {EMOJI['RESET']} {translator.get('menu.reset')}",
+        2: f"{Fore.GREEN}2{Style.RESET_ALL}. {EMOJI['SUCCESS']} {translator.get('menu.register')} ({Fore.RED}{translator.get('menu.outdate')}{Style.RESET_ALL})",
+        3: f"{Fore.GREEN}3{Style.RESET_ALL}. {EMOJI['SUN']} {translator.get('menu.register_google')} {EMOJI['ROCKET']} ({Fore.YELLOW}{translator.get('menu.lifetime_access_enabled')}{Style.RESET_ALL})",
+        4: f"{Fore.GREEN}4{Style.RESET_ALL}. {EMOJI['STAR']} {translator.get('menu.register_github')} {EMOJI['ROCKET']} ({Fore.YELLOW}{translator.get('menu.lifetime_access_enabled')}{Style.RESET_ALL})",
+        5: f"{Fore.GREEN}5{Style.RESET_ALL}. {EMOJI['SUCCESS']} {translator.get('menu.register_manual')}",
+        6: f"{Fore.GREEN}6{Style.RESET_ALL}. {EMOJI['RESET']} {translator.get('menu.temp_github_register')}",
+        7: f"{Fore.GREEN}7{Style.RESET_ALL}. {EMOJI['ERROR']} {translator.get('menu.quit')}",
+        8: f"{Fore.GREEN}8{Style.RESET_ALL}. {EMOJI['LANG']} {translator.get('menu.select_language')}",
+        9: f"{Fore.GREEN}9{Style.RESET_ALL}. {EMOJI['UPDATE']} {translator.get('menu.disable_auto_update')}",
+        10: f"{Fore.GREEN}10{Style.RESET_ALL}. {EMOJI['RESET']} {translator.get('menu.totally_reset')}",
+        11: f"{Fore.GREEN}11{Style.RESET_ALL}. {EMOJI['CONTRIBUTE']} {translator.get('menu.contribute')}",
+        12: f"{Fore.GREEN}12{Style.RESET_ALL}. {EMOJI['SETTINGS']}  {translator.get('menu.config')}"
+    }
+    
+    # Automatically calculate the number of menu items in the left and right columns
+    total_items = len(menu_items)
+    left_column_count = (total_items + 1) // 2  # The number of options displayed on the left (rounded up)
+    
+    # Build left and right columns of menus
+    sorted_indices = sorted(menu_items.keys())
+    left_menu = [menu_items[i] for i in sorted_indices[:left_column_count]]
+    right_menu = [menu_items[i] for i in sorted_indices[left_column_count:]]
+    
+    # Calculate the maximum display width of left menu items
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    
+    def get_display_width(s):
+        """Calculate the display width of a string, considering Chinese characters and emojis"""
+        # Remove ANSI color codes
+        clean_s = ansi_escape.sub('', s)
+        width = 0
+        for c in clean_s:
+            # Chinese characters and some emojis occupy two character widths
+            if ord(c) > 127:
+                width += 2
+            else:
+                width += 1
+        return width
+    
+    max_left_width = 0
+    for item in left_menu:
+        width = get_display_width(item)
+        max_left_width = max(max_left_width, width)
+    
+    # Set the starting position of right menu
+    fixed_spacing = 4  # Fixed spacing
+    right_start = max_left_width + fixed_spacing
+    
+    # Calculate the number of spaces needed for right menu items
+    spaces_list = []
+    for i in range(len(left_menu)):
+        if i < len(left_menu):
+            left_item = left_menu[i]
+            left_width = get_display_width(left_item)
+            spaces = right_start - left_width
+            spaces_list.append(spaces)
+    
+    # Print menu items
+    max_rows = max(len(left_menu), len(right_menu))
+    
+    for i in range(max_rows):
+        # Print left menu items
+        if i < len(left_menu):
+            left_item = left_menu[i]
+            print(left_item, end='')
+            
+            # Use pre-calculated spaces
+            spaces = spaces_list[i]
+        else:
+            # If left side has no items, print only spaces
+            spaces = right_start
+            print('', end='')
+        
+        # Print right menu items
+        if i < len(right_menu):
+            print(' ' * spaces + right_menu[i])
+        else:
+            print()  # Change line
+    if translator.current_language == 'zh_cn' or translator.current_language == 'zh_tw':
+        print(f"{Fore.YELLOW}{'─' * 70}{Style.RESET_ALL}")
+    else:
+        print(f"{Fore.YELLOW}{'─' * 110}{Style.RESET_ALL}")
 
 def select_language():
     """Language selection menu"""
@@ -256,6 +394,11 @@ def check_latest_version():
             timeout=10
         )
         
+        # Check if rate limit exceeded
+        if response.status_code == 403 and "rate limit exceeded" in response.text.lower():
+            print(f"{Fore.YELLOW}{EMOJI['INFO']} {translator.get('updater.rate_limit_exceeded', fallback='GitHub API rate limit exceeded. Skipping update check.')}{Style.RESET_ALL}")
+            return
+        
         # Check if response is successful
         if response.status_code != 200:
             raise Exception(f"GitHub API returned status code {response.status_code}")
@@ -270,8 +413,65 @@ def check_latest_version():
         if not latest_version:
             raise Exception("Invalid version format received")
         
-        if latest_version != version:
+        # Parse versions for proper comparison
+        def parse_version(version_str):
+            """Parse version string into tuple for proper comparison"""
+            try:
+                return tuple(map(int, version_str.split('.')))
+            except ValueError:
+                # Fallback to string comparison if parsing fails
+                return version_str
+                
+        current_version_tuple = parse_version(version)
+        latest_version_tuple = parse_version(latest_version)
+        
+        # Compare versions properly
+        is_newer_version_available = False
+        if isinstance(current_version_tuple, tuple) and isinstance(latest_version_tuple, tuple):
+            is_newer_version_available = current_version_tuple < latest_version_tuple
+        else:
+            # Fallback to string comparison
+            is_newer_version_available = version != latest_version
+        
+        if is_newer_version_available:
             print(f"\n{Fore.YELLOW}{EMOJI['INFO']} {translator.get('updater.new_version_available', current=version, latest=latest_version)}{Style.RESET_ALL}")
+            
+            # get and show changelog
+            try:
+                changelog_url = "https://raw.githubusercontent.com/yeongpin/cursor-free-vip/main/CHANGELOG.md"
+                changelog_response = requests.get(changelog_url, timeout=10)
+                
+                if changelog_response.status_code == 200:
+                    changelog_content = changelog_response.text
+                    
+                    # get latest version changelog
+                    latest_version_pattern = f"## v{latest_version}"
+                    changelog_sections = changelog_content.split("## v")
+                    
+                    latest_changes = None
+                    for section in changelog_sections:
+                        if section.startswith(latest_version):
+                            latest_changes = section
+                            break
+                    
+                    if latest_changes:
+                        print(f"\n{Fore.CYAN}{'─' * 40}{Style.RESET_ALL}")
+                        print(f"{Fore.CYAN}{translator.get('updater.changelog_title')}:{Style.RESET_ALL}")
+                        
+                        # show changelog content (max 10 lines)
+                        changes_lines = latest_changes.strip().split('\n')
+                        for i, line in enumerate(changes_lines[1:11]):  # skip version number line, max 10 lines
+                            if line.strip():
+                                print(f"{Fore.WHITE}{line.strip()}{Style.RESET_ALL}")
+                        
+                        # if changelog more than 10 lines, show ellipsis
+                        if len(changes_lines) > 11:
+                            print(f"{Fore.WHITE}...{Style.RESET_ALL}")
+                        
+                        print(f"{Fore.CYAN}{'─' * 40}{Style.RESET_ALL}")
+            except Exception as changelog_error:
+                # get changelog failed
+                pass
             
             # Ask user if they want to update
             while True:
@@ -317,7 +517,11 @@ def check_latest_version():
                 print(f"{Fore.YELLOW}{EMOJI['INFO']} {translator.get('updater.manual_update_required')}{Style.RESET_ALL}")
                 return
         else:
-            print(f"{Fore.GREEN}{EMOJI['SUCCESS']} {translator.get('updater.up_to_date')}{Style.RESET_ALL}")
+            # If current version is newer or equal to latest version
+            if current_version_tuple > latest_version_tuple:
+                print(f"{Fore.GREEN}{EMOJI['SUCCESS']} {translator.get('updater.development_version', current=version, latest=latest_version)}{Style.RESET_ALL}")
+            else:
+                print(f"{Fore.GREEN}{EMOJI['SUCCESS']} {translator.get('updater.up_to_date')}{Style.RESET_ALL}")
             
     except requests.exceptions.RequestException as e:
         print(f"{Fore.RED}{EMOJI['ERROR']} {translator.get('updater.network_error', error=str(e))}{Style.RESET_ALL}")
@@ -332,11 +536,11 @@ def check_latest_version():
 def main():
     # Check for admin privileges if running as executable on Windows only
     if platform.system() == 'Windows' and is_frozen() and not is_admin():
-        print(f"{Fore.YELLOW}{EMOJI['ADMIN']} Running as executable, administrator privileges required.{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}{EMOJI['ADMIN']} {translator.get('menu.admin_required')}{Style.RESET_ALL}")
         if run_as_admin():
             sys.exit(0)  # Exit after requesting admin privileges
         else:
-            print(f"{Fore.YELLOW}{EMOJI['INFO']} Continuing without administrator privileges.{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}{EMOJI['INFO']} {translator.get('menu.admin_required_continue')}{Style.RESET_ALL}")
     
     print_logo()
     
@@ -346,12 +550,14 @@ def main():
         print(f"{Fore.RED}{EMOJI['ERROR']} {translator.get('menu.config_init_failed')}{Style.RESET_ALL}")
         return
         
-    check_latest_version()  # Add version check before showing menu
+    if config.getboolean('Utils', 'enabled_update_check'):
+        check_latest_version()  # Add version check before showing menu
     print_menu()
     
     while True:
         try:
-            choice = input(f"\n{EMOJI['ARROW']} {Fore.CYAN}{translator.get('menu.input_choice', choices='0-6')}: {Style.RESET_ALL}")
+            choice_num = 12
+            choice = input(f"\n{EMOJI['ARROW']} {Fore.CYAN}{translator.get('menu.input_choice', choices=f'0-{choice_num}')}: {Style.RESET_ALL}")
 
             if choice == "0":
                 print(f"\n{Fore.YELLOW}{EMOJI['INFO']} {translator.get('menu.exit')}...{Style.RESET_ALL}")
@@ -366,20 +572,46 @@ def main():
                 cursor_register.main(translator)
                 print_menu()
             elif choice == "3":
+                import cursor_register_google
+                cursor_register_google.main(translator)
+                print_menu()
+            elif choice == "4":
+                import cursor_register_github
+                cursor_register_github.main(translator)
+                print_menu()
+            elif choice == "5":
                 import cursor_register_manual
                 cursor_register_manual.main(translator)
                 print_menu()
-            elif choice == "4":
+            elif choice == "6":
+                import github_cursor_register
+                print(f"{Fore.YELLOW}{EMOJI['INFO']} {translator.get('menu.coming_soon')}{Style.RESET_ALL}")
+                # github_cursor_register.main(translator)
+                print_menu()
+            elif choice == "7":
                 import quit_cursor
                 quit_cursor.quit_cursor(translator)
                 print_menu()
-            elif choice == "5":
+            elif choice == "8":
                 if select_language():
                     print_menu()
                 continue
-            elif choice == "6":
+            elif choice == "9":
                 import disable_auto_update
                 disable_auto_update.run(translator)
+                print_menu()
+            elif choice == "10":
+                import totally_reset_cursor
+                totally_reset_cursor.run(translator)
+                # print(f"{Fore.YELLOW}{EMOJI['INFO']} {translator.get('menu.fixed_soon')}{Style.RESET_ALL}")
+                print_menu()
+            elif choice == "11":
+                import logo
+                print(logo.CURSOR_CONTRIBUTORS)
+                print_menu()
+            elif choice == "12":
+                from config import print_config
+                print_config(get_config(), translator)
                 print_menu()
             else:
                 print(f"{Fore.RED}{EMOJI['ERROR']} {translator.get('menu.invalid_choice')}{Style.RESET_ALL}")
